@@ -42,7 +42,8 @@ class AngledJoint(object):
     alpha =0.261799387
 
     def __init__(self, slide=None, lift=None,
-                 x0=0., y0=0.)
+                 x0=0., y0=0.0):
+
         self.slide = slide
         self.lift  = lift
         self.x0    = x0
@@ -84,7 +85,7 @@ class AngledJoint(object):
             A tuple of the neccesary positions of the form (slide, lift)
         """
         return (coordinate[0]-coordinate[1]/tan(self.alpha),
-                coordinate[0]/sin(self.alpha)
+                coordinate[1]/sin(self.alpha))
 
 
     def __repr__(self):
