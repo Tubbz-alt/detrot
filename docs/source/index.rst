@@ -8,3 +8,4 @@ CXI Detector Rotation
    :caption: Contents:
 
    points.rst
+   angled.rst
