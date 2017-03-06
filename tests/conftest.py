@@ -10,7 +10,7 @@ import pytest
 ##########
 # Module #
 ##########
-from pystand import Point
+from detrot import Point
 
 class PseudoMotor:
 
@@ -19,9 +19,9 @@ class PseudoMotor:
 
 class PseudoStand: 
 
-    pitch = 0.
-    yaw   = 0.
-    roll  = 0.
 
     def __init__(self, point):
-        self.cone = point
+        self.cone  = point
+        self.pitch = 0.
+        self.yaw   = 0.
+        self.roll  = 0.

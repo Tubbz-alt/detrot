@@ -11,7 +11,7 @@ import pytest
 ##########
 # Module #
 ##########
-from pystand  import AngledJoint, Point
+from detrot  import AngledJoint, Point
 from conftest import PseudoMotor
 
 
