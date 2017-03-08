@@ -1,0 +1,12 @@
+[run]
+source =
+   detrot
+[report]
+omit =
+   */tests/*
+   #Ignore _version and versioneer
+   .*version.*
+   *_version.py
+
+exclude_lines = 
+    def __repr__
