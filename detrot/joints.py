@@ -1,10 +1,22 @@
 """
+Part of the complexity of rotating the detector stands is manipulating the
+three unique joints at each corner. All three have a ``lift`` motor which
+pushes the stand upwards and horizontally. In the case of the cone joint at
+front of the stand, moving upwards also neccesitates a motion in the positive X
+direction, while the back two joints both introduce displacement in negative z  
+
+Finally, both the vee and cone joints have ``slide `` motors. These help adjust
+the X motion of the chamber to counter act the parasitic motions of the lift.
+In order represent all three of these joints, we have the :class:`.AngledJoint`
+and :class:`.ConeJoint` class. Each interperts the position of their motors and
+the given ``offset`` to find the rest frame position of the joint. They
+also each have an :meth:`.invert` method so the the operation can be reversed.
 """
 ############
 # Standard #
 ############
 import logging
-from math import cos, tan, sin
+from math import pi, cos, tan, sin
 
 ###############
 # Third Party #
@@ -21,7 +33,10 @@ logger = logging.getLogger(__name__)
 
 class AngledJoint(object):
     """
-    A class representing two angled joint motors as a single axis
+    A class representing two angled joint motors as a single axis.
+
+    This class is used for both the vee and flat joints, with the
+    former leaving the ``slide`` parameter blank
 
     Parameters
     ----------
@@ -31,15 +46,15 @@ class AngledJoint(object):
     slide : ``ophyd.EpicsMotor``, optional
         Horizontal Motor
 
-    offset : `.Point`
-        The position of the joint when all motors are at nominal zero
+    offset : tuple or :class:`.Point`
+        The (x,y,z) position of the joint when all motors are at nominal zero
 
     Attributes
     ----------
     alpha : float
         The angle of the tilted motor in radians
     """
-    alpha =0.261799387
+    alpha = pi/12.
 
     def __init__(self, lift=None, slide=None, offset=None):
 
@@ -131,6 +146,9 @@ class AngledJoint(object):
 
 
 class ConeJoint(AngledJoint):
+    """
+    Class to represent the stand Cone joint
+    """
     @property
     def joint(self):
         """
