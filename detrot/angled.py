@@ -81,7 +81,7 @@ class AngledJoint(object):
     def invert(self, point):
         """
         Invert the matrix to find the neccesary motor positions to put the
-        joint at a specific displacement (x,y) coordinate
+        joint at a specific displacement (x,y) coordinate in rest coordinates
 
         Parameters
         -----------
@@ -95,16 +95,24 @@ class AngledJoint(object):
 
         Raises
         ------
-        ValueError : 
+        ValueError :
             If the given position is not possible for the joint
         """
-        if not self.lift and point[1] != self.offset.y:
+        #Convert to Point object
+        if not isinstance(point, Point):
+            point = Point(*point, 0.)
+
+        #Find displacement
+        dis = Point(point.x - self.offset.x,
+                    point.y - self.offset.y)
+
+        if not self.lift and point.y != 0.:
             raise ValueError("Unable to reach desired position {},"
                              "because this joint has no lift"
                              "".format(point[1]))
 
-        return (point[0]-point[1]/tan(self.alpha),
-                point[1]/sin(self.alpha))
+        return (dis.x-dis.y/tan(self.alpha),
+                dis.y/sin(self.alpha))
 
 
     def __repr__(self):
