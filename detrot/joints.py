@@ -16,7 +16,7 @@ also each have an :meth:`.invert` method so the the operation can be reversed.
 # Standard #
 ############
 import logging
-from math import pi, cos, tan, sin
+from math import pi, cos, tan, sin, fabs
 
 ###############
 # Third Party #
@@ -189,5 +189,161 @@ class ConeJoint(AngledJoint):
 
         return (dis.x-dis.y/tan(self.alpha),
                 dis.y/sin(self.alpha))
+
+
+class Stand:
+    """
+    Represent a detector stand
+
+    This object keeps track of all three joints as well as the angle of the
+    stand as a whole. Upon initialization, the stand may not have the proper
+    angles set, and the :meth:`.find_angles` method may be used to iteratively
+    search for the correct set of angles to satisfy the current motor positions
+
+    Parameters
+    ----------
+    cone : :class:`.ConeJoint`
+        The front joint for the detector stand
+
+    flat : :class:`.AngledJoint`
+        The rear joint without a slide on the detector stand
+
+    vee : :class:`.AngledJoint`
+        The rear joint with a slide on the detector stand
+
+
+    Attributes
+    ----------
+    pitch : float
+        The rotation about the X axis in radians
+
+    yaw : float
+        The rotation about the Y axis in radians
+
+    roll : float
+        The rotation about the Z axis in radians
+    """
+    def __init__(self, cone=None, flat=None, vee=None):
+
+        #Angles
+        self.pitch = 0.
+        self.yaw   = 0.
+        self.roll  = 0.
+    
+        #Load Joints
+        self.cone = cone
+        self.flat = flat
+        self.vee  = vee
+
+    @property
+    def cone_ball(self):
+        """
+        The :class:`.StandPoint` at the top of the cone joint
+        """
+        return StandPoint(self.cone.position, self)
+
+
+    @property
+    def vee_ball(self):
+        """
+        The :class:`.StandPoint` at the top of the vee joint
+        """
+        return StandPoint(self.vee.position, self)
+
+
+    @property
+    def flat_ball(self):
+        """
+        The :class:`.StandPoint` at the top of the flat joint
+        """
+        return StandPoint(self.flat.position, self)
+
+
+    def find_angles(self, precision= 0.001, min_iterations=30):
+        """
+        Return the value of the pitch, yaw, and roll through an iterative
+        process of comparing estimated angles and motor encoder readbacks.
+
+        Previous attempts to invert the transformation matrix proved too
+        inaccurate, so instead an iterative method is used. The algorithm
+        considers the location of the cone joint and an estimated set of angles
+        to provide a predicted location of each joint. From there, we
+        can use the geometry of each joint to see where our estimation would
+        put the position of the motors. By comparing  these motor positions
+        with the actual encoder values on the stand, we can get a sense of how
+        far our predicted angles are from reality. By iterating through this
+        process a number of times, the true angle of the stand can be
+        determined.
+
+        The algorithm looks for one of two conditions to end the iterative
+        process, first if the desired precision for our estimate is reached, as
+        well as the minimum number of iterations we can stop searching for a
+        solution. Secondly, if the number of iterations has gone past twice the
+        minimum value, we stop searching for a solution.
+
+        Parameters
+        ----------
+        precision : float, optional
+            The precision required for the estimated motor positions.
+
+        min_iterations : int, optional
+            The minimum number of iterations before the function will exit.
+
+        Returns
+        -------
+        angles : tuple
+            Pitch, Yaw and Roll of the detector chamber
+        """
+        it = 0
+        logger.debug("Finding angles of stand ...")
+
+        #Resting stand positions
+        flat = StandPoint(self.flat.offset, self)
+        vee  = StandPoint(self.vee.offset,  self)
+
+        #Begin iteration
+        while True:
+            logger.debug("Iteration {} ...".format(it))
+
+            #Find error in predicted flat motor position from current angles
+            fl_e =  self.slide.invert(flat.room_coordinates)- self.slide.displacement
+            logger.debug("Found an error of {} mm in the prediction "
+                         "of the flat slide motor"
+                         "".format(s_e))
+
+            #Find error in predicted vee motor position from current angles
+            predictions  = self.vee.invert(vee.room_coordinates)
+            (vs_e, vl_e) = [actual - pred for (actual,pred) in
+                            zip(self.vee.displacement, predictions)]
+            logger.debug("Found a lift error of {} mm and a slide error of "
+                         "{} mm for the motors in the vee joint"
+                         "".format(vl_e, vs_e))
+
+            #End iteration if loop and precision thresholds have been met
+            if (it > min_iterations and precision > max([fabs(fl_e),
+                                                        fabs(vl_e),
+                                                        fabs(vs_e)])):
+                logger.info("Succesfully found stand angles")
+                break
+
+            #End iteration if loop has gone twice the minima
+            if it > 2*min_iterations:
+                logger.warning("Unable to converge on angles for the stand")
+                break
+
+            #Adjust the angle predictions 
+            it += 1
+
+            self.pitch += (vl_e + vs_e)/(3*self.vee.offset.z)
+            self.yaw   +=  vs_e/(-3*self.vee.offset.z)
+            self.roll  += (fl_e - vl_e)/(3*(sin(self.vee.alpha)
+                                         +self.vee.offset.x
+                                         -self.flat.offset.x))
+
+            logger.debug("Pitch, Yaw, and Roll adjusted to {}"
+                         "".format((self.pitch, self.yaw, self.roll)))
+
+        return (self.pitch, self.yaw, self.roll)
+
 
 
