@@ -188,6 +188,15 @@ class AngledJoint:
         return self.set_displacement(self.invert(point, offset=offset))
 
 
+    def stop(self):
+        """
+        Stop all motion
+        """
+        if self.slide:
+            self.slide.stop()
+        self.lift.stop()
+    
+    
     @classmethod
     def model(cls, joint):
         """
@@ -290,14 +299,6 @@ class ConeJoint(AngledJoint):
                 point.y/sin(self.alpha))
 
 
-    def stop(self):
-        """
-        Stop all motion
-        """
-        if self.slide:
-            self.slide.stop()
-        self.lift.stop()
-
 
     def __repr__(self):
         return "ConeJoint at {!r}".format(self.joint)
@@ -309,6 +310,7 @@ class ConeJoint(AngledJoint):
                           offset = self.offset)
         joint.alpha = self.alpha
         return joint
+
 
 class Stand:
     """
@@ -342,10 +344,10 @@ class Stand:
     roll : float
         The rotation about the Z axis in radians
 
-    joint_names : list
+    joint_names : tuple
         Names of joints assoicated with stand
     """
-    joint_names = ['cone', 'vee', 'flat']
+    joint_names = ('cone', 'vee', 'flat')
 
     def __init__(self, cone=None, flat=None, vee=None):
 
@@ -353,11 +355,12 @@ class Stand:
         self.pitch = 0.
         self.yaw   = 0.
         self.roll  = 0.
-    
+
         #Load Joints
         self.cone = cone
         self.flat = flat
         self.vee  = vee
+
 
     @property
     def cone_ball(self):
@@ -430,10 +433,10 @@ class Stand:
             logger.debug("Iteration {} ...".format(it))
 
             #Find error in predicted flat motor position from current angles
-            fl_e =  self.slide.invert(flat.room_coordinates)- self.slide.displacement
+            fl_e =  self.flat.invert(flat.room_coordinates)- self.flat.displacement
             logger.debug("Found an error of {} mm in the prediction "
                          "of the flat slide motor"
-                         "".format(s_e))
+                         "".format(fl_e))
 
             #Find error in predicted vee motor position from current angles
             predictions  = self.vee.invert(vee.room_coordinates)
@@ -445,8 +448,8 @@ class Stand:
 
             #End iteration if loop and precision thresholds have been met
             if (it > min_iterations and precision > max([fabs(fl_e),
-                                                        fabs(vl_e),
-                                                        fabs(vs_e)])):
+                                                         fabs(vl_e),
+                                                         fabs(vs_e)])):
                 logger.info("Succesfully found stand angles")
                 break
 
