@@ -16,14 +16,14 @@ from detrot  import ConeJoint, AngledJoint, Point
 from conftest import PseudoMotor
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def pseudo_cone():
     angled = ConeJoint(slide  = PseudoMotor(5),
                        lift   = PseudoMotor(10),
                        offset = Point(1,2,3))
     return angled
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def pseudo_angle():
     angled = AngledJoint(slide  = PseudoMotor(5),
                          lift   = PseudoMotor(10),
@@ -62,12 +62,10 @@ def test_angle_joint(pseudo_angle):
     assert pytest.approx(pseudo_angle.joint.z) == -10
 
     #Test no-slide
-    p2 = pseudo_angle.slide
     pseudo_angle.slide = None
     assert pytest.approx(pseudo_angle.joint.x) == 0
     assert pytest.approx(pseudo_angle.joint.y) == 0
     assert pytest.approx(pseudo_angle.joint.z) == -10
-    pseudo_angle.slide = p2
 
 def test_angle_invert(pseudo_angle):
     #Test Vertical
@@ -76,10 +74,8 @@ def test_angle_invert(pseudo_angle):
     assert pseudo_angle.invert((6,12))[1] == pytest.approx(10,0.1)
 
     #Test no-slide
-    p2 = pseudo_angle.slide
     pseudo_angle.slide = None
     assert pseudo_angle.invert((6,12)) == pytest.approx(10,0.1)
-    pseudo_angle.slide = p2
 
 def test_position(pseudo_cone):
     pseudo_cone.alpha= 0
@@ -92,10 +88,8 @@ def test_position(pseudo_cone):
 
 def test_displacement(pseudo_angle):
     assert pseudo_angle.displacement == (5,10)
-    p2 = pseudo_angle.slide
     pseudo_angle.slide = None
     assert pseudo_angle.displacement == 10
-    pseudo_angle.slide = p2
 
 
 def test_set_joint(pseudo_angle):
@@ -106,12 +100,9 @@ def test_set_joint(pseudo_angle):
     assert pseudo_angle.displacement[1] == pytest.approx(10,0.1)
     
     #Test no-slide
-    p2 = pseudo_angle.slide
     pseudo_angle.slide = None
     pseudo_angle.set_joint((6,12)) 
     assert pseudo_angle.displacement == pytest.approx(10,0.1) 
-    pseudo_angle.slide = p2
-
 
 def test_model(pseudo_angle, pseudo_cone):
     model = AngledJoint.model(pseudo_angle)
@@ -120,18 +111,17 @@ def test_model(pseudo_angle, pseudo_cone):
     assert model.displacement == pseudo_angle.displacement
 
     #Test no slide
-    p2 = pseudo_angle.slide
+    pseudo_angle.slide = None
     model = AngledJoint.model(pseudo_angle)
-    assert isinstance(model.slide, ophyd.SoftPositioner)
+    assert model.slide == None
     assert isinstance(model.lift, ophyd.SoftPositioner)
     assert model.displacement == pseudo_angle.displacement
-    pseudo_angle.slide = p2
 
     #Test cone
     model = ConeJoint.model(pseudo_cone)
     assert isinstance(model.slide, ophyd.SoftPositioner)
     assert isinstance(model.lift, ophyd.SoftPositioner)
-    assert model.displacement == pseudo_angle.displacement
+    assert model.displacement == pseudo_cone.displacement
 
 def test_stop(pseudo_cone):
     pseudo_cone.stop()
@@ -142,3 +132,10 @@ def test_cmp():
     p1 = PseudoMotor(5)
     p2 = PseudoMotor(10)
     assert AngledJoint(p1,p2) == AngledJoint(p1, p2)
+
+
+def test_find_angle(pseudo_stand):
+    pseudo_stand.find_angles()
+    assert pseudo_stand.pitch == 0
+    assert pseudo_stand.yaw   == 0
+    assert pseudo_stand.roll  == 0
