@@ -6,6 +6,7 @@ import math
 ###############
 # Third Party #
 ###############
+import ophyd
 import pytest
 
 ##########
@@ -95,6 +96,47 @@ def test_displacement(pseudo_angle):
     pseudo_angle.slide = None
     assert pseudo_angle.displacement == 10
     pseudo_angle.slide = p2
+
+
+def test_set_joint(pseudo_angle):
+    #Vertical
+    pseudo_angle.alpha = math.pi/2.
+    pseudo_angle.set_joint((6,12))
+    assert pseudo_angle.displacement[0] == pytest.approx(5,0.1)
+    assert pseudo_angle.displacement[1] == pytest.approx(10,0.1)
+    
+    #Test no-slide
+    p2 = pseudo_angle.slide
+    pseudo_angle.slide = None
+    pseudo_angle.set_joint((6,12)) 
+    assert pseudo_angle.displacement == pytest.approx(10,0.1) 
+    pseudo_angle.slide = p2
+
+
+def test_model(pseudo_angle, pseudo_cone):
+    model = AngledJoint.model(pseudo_angle)
+    assert isinstance(model.slide, ophyd.SoftPositioner)
+    assert isinstance(model.lift, ophyd.SoftPositioner)
+    assert model.displacement == pseudo_angle.displacement
+
+    #Test no slide
+    p2 = pseudo_angle.slide
+    model = AngledJoint.model(pseudo_angle)
+    assert isinstance(model.slide, ophyd.SoftPositioner)
+    assert isinstance(model.lift, ophyd.SoftPositioner)
+    assert model.displacement == pseudo_angle.displacement
+    pseudo_angle.slide = p2
+
+    #Test cone
+    model = ConeJoint.model(pseudo_cone)
+    assert isinstance(model.slide, ophyd.SoftPositioner)
+    assert isinstance(model.lift, ophyd.SoftPositioner)
+    assert model.displacement == pseudo_angle.displacement
+
+def test_stop(pseudo_cone):
+    pseudo_cone.stop()
+    pseudo_cone.slide.stop_call.method.assert_called_with()
+    pseudo_cone.lift.stop_call.method.assert_called_with()
 
 def test_cmp():
     p1 = PseudoMotor(5)
