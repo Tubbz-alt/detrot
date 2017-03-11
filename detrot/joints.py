@@ -159,8 +159,8 @@ class AngledJoint:
             return self.lift.move(displacement, wait=False)
 
         else:
-            return [self.lift.move(displacement[0], wait=False),
-                    self.slide.move(displacement[1], wait=False)]
+            return [self.slide.move(displacement[0], wait=False),
+                    self.lift.move(displacement[1],  wait=False)],
 
 
     def set_joint(self, point, offset=True):
@@ -185,7 +185,7 @@ class AngledJoint:
         --------
         :meth:`.invert`, :meth:`.set_displacement`
         """
-        return self.set_displacement(self.invert(point), offset=offset)
+        return self.set_displacement(self.invert(point, offset=offset))
 
 
     @classmethod
@@ -216,12 +216,12 @@ class AngledJoint:
             soft.move(mtr.position)
             return soft
 
-        joint.slide, joint.lift = duplicate(join.slide), duplicate(joint.lift)
+        joint.slide, joint.lift = duplicate(joint.slide), duplicate(joint.lift)
         return joint
 
 
     def __copy__(self):
-        joint = angledjoint(lift   = self.lift,
+        joint = AngledJoint(lift   = self.lift,
                             slide  = self.slide,
                             offset = self.offset)
         joint.alpha = self.alpha
