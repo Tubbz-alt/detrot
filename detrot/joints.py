@@ -15,23 +15,24 @@ also each have an :meth:`.invert` method so the the operation can be reversed.
 ############
 # Standard #
 ############
+import copy
 import logging
 from math import pi, cos, tan, sin, fabs
 
 ###############
 # Third Party #
 ###############
-
+from ophyd import SoftPositioner
 
 ##########
 # Module #
 ##########
-from .points import Point
+from .points import StandPoint, Point
 
 logger = logging.getLogger(__name__)
 
 
-class AngledJoint(object):
+class AngledJoint:
     """
     A class representing two angled joint motors as a single axis.
 
@@ -98,7 +99,7 @@ class AngledJoint(object):
         return Point(slide, lift*sin(self.alpha), -lift*cos(self.alpha))
 
 
-    def invert(self, point):
+    def invert(self, point, offset=True):
         """
         Invert the matrix to find the neccesary motor positions to put the
         joint at a specific displacement (x,y) coordinate in rest coordinates
@@ -107,6 +108,10 @@ class AngledJoint(object):
         -----------
         point : tuple or :class:`.Point`
             The desired x,y coordinates of the joint
+        
+        offset : bool, optional
+            Subtract the offset before calculating the motor positions. If set
+            to False, just the displacement of the motors should be entered
 
         Returns
         --------
@@ -123,15 +128,104 @@ class AngledJoint(object):
             point = Point(*point, 0)
 
         #Find displacement
-        dis = Point(point.x - self.offset.x,
-                   (point.y - self.offset.y)/sin(self.alpha),
-                    0.)
+        if offset:
+            point = Point(point.x - self.offset.x,
+                          point.y - self.offset.y,
+                          0.)
 
         if not self.slide:
-            return dis.y
+            return point.y/sin(self.alpha)
 
         else:
-            return (dis.x, dis.y)
+            return (point.x, point.y/sin(self.alpha))
+
+
+    def set_displacement(self, displacement):
+        """
+        Set the displacements of the lift and/or slide stages of the joint
+
+        Parameters
+        ----------
+        displacement : float or tuple
+            Either a single float if there is no slide, otherwise a tuple of
+            (slide, lift)
+
+        Returns
+        -------
+        status : ``ophyd.Status``
+            Status of the requested move, or list of both requested moves
+        """
+        if not self.slide:
+            return self.lift.move(displacement, wait=False)
+
+        else:
+            return [self.lift.move(displacement[0], wait=False),
+                    self.slide.move(displacement[1], wait=False)]
+
+
+    def set_joint(self, point, offset=True):
+        """
+        Set the joint to a specific point in rest frame coordinates
+
+        Parameters
+        ----------
+        point : tuple or :class:`.Point`
+            The desired x,y coordinates of the joint
+
+        offset : bool, optional
+            Subtract the offset before calculating the motor positions. If set
+            to False, just the displacement of the motors should be entered
+
+        Returns
+        -------
+        status : ``ophyd.Status``
+            Status of the requested move, or list of both requested moves
+
+        See Also
+        --------
+        :meth:`.invert`, :meth:`.set_displacement`
+        """
+        return self.set_displacement(self.invert(point), offset=offset)
+
+
+    @classmethod
+    def model(cls, joint):
+        """
+        Create an identical joint but with the actual motors replaced by
+        ``SoftPositioner`` instances
+
+        Parameters
+        ----------
+        joint : :class:`.Joint`
+            Joint to be modeled
+
+        Returns
+        -------
+        joint : :class:`.Joint`
+            Copied joint with ``SoftPositioner`` slide and lift
+        """
+        #Copy stand
+        joint = copy.copy(joint)
+
+        #Method to duplicate
+        def duplicate(mtr):
+            if not mtr:
+                return None
+
+            soft = SoftPositioner(name=mtr.name, limits=mtr.limits)
+            soft.move(mtr.position)
+            return soft
+
+        joint.slide, joint.lift = duplicate(join.slide), duplicate(joint.lift)
+        return joint
+
+
+    def __copy__(self):
+        joint = angledjoint(lift   = self.lift,
+                            slide  = self.slide,
+                            offset = self.offset)
+        joint.alpha = self.alpha
+        return joint
 
 
     def __repr__(self):
@@ -158,7 +252,7 @@ class ConeJoint(AngledJoint):
                      self.displacement[1]*sin(self.alpha),
                      0.)
 
-    def invert(self, point):
+    def invert(self, point, offset=True):
         """
         Invert the matrix to find the neccesary motor positions to put the
         joint at a specific displacement (x,y) coordinate in rest coordinates
@@ -167,6 +261,10 @@ class ConeJoint(AngledJoint):
         -----------
         point : tuple or :class:`.Point`
             The desired x,y coordinates of the joint
+
+        offset : bool, optional
+            Subtract the offset before calculating the motor positions. If set
+            to False, just the displacement of the motors should be entered
 
         Returns
         --------
@@ -183,13 +281,34 @@ class ConeJoint(AngledJoint):
             point = Point(*point, 0.)
 
         #Find displacement
-        dis = Point(point.x - self.offset.x,
-                    point.y - self.offset.y,
-                    0.)
+        if offset:
+            point = Point(point.x - self.offset.x,
+                        point.y - self.offset.y,
+                        0.)
 
-        return (dis.x-dis.y/tan(self.alpha),
-                dis.y/sin(self.alpha))
+        return (point.x-point.y/tan(self.alpha),
+                point.y/sin(self.alpha))
 
+
+    def stop(self):
+        """
+        Stop all motion
+        """
+        if self.slide:
+            self.slide.stop()
+        self.lift.stop()
+
+
+    def __repr__(self):
+        return "ConeJoint at {!r}".format(self.joint)
+
+
+    def __copy__(self):
+        joint = ConeJoint(lift   = self.lift,
+                          slide  = self.slide,
+                          offset = self.offset)
+        joint.alpha = self.alpha
+        return joint
 
 class Stand:
     """
@@ -222,7 +341,12 @@ class Stand:
 
     roll : float
         The rotation about the Z axis in radians
+
+    joint_names : list
+        Names of joints assoicated with stand
     """
+    joint_names = ['cone', 'vee', 'flat']
+
     def __init__(self, cone=None, flat=None, vee=None):
 
         #Angles
@@ -346,4 +470,93 @@ class Stand:
         return (self.pitch, self.yaw, self.roll)
 
 
+    def invert(self, offset=True, **kwargs):
+        """
+        Find the neccesary motor positions for requested joint displacement
 
+        Parameters
+        ----------
+        cone : tuple or :class:`.Point`
+            Position of cone joint
+
+        flat : tuple or :class:`.Point`
+            Position of vee joint
+
+        vee : tuple or :class:`.Point`
+            Position of vee joint
+
+        offset : bool
+            Whether to remove the requested inherit offset or not
+
+        Returns
+        -------
+        displacement : dict
+            Dictionary with each 
+        """
+        shift = dict.from_keys(self.joint_names)
+
+        for joint in shift.keys():
+            if joint in kwargs:
+                shift[joint] = getattr(self,joint).invert(kwargs[joint],
+                                                          offset=offset)
+
+        return shift
+
+
+    def translate(self, dx=0., dy=0., wait=False):
+        """"
+        Translate the entire stand in x,y
+
+        Parameters
+        ----------
+        dx : float
+            Distance in mm to move in horizontal direction
+
+        dy : float
+            Distance in mm to move in vertical direction
+
+        wait : bool
+            Block thread until move finishes
+
+        timeout : float
+            Amount of time in seconds to wait. None disables, such that wait()
+            will only return when either the status completes or if interrupted
+            by the user.
+
+        Returns
+        -------
+        statuses : list of status
+            List of MoveStatus
+
+        Raises
+        ------
+        TimeoutError
+            If time waited exceeds specified timeout
+
+        RuntimeError
+            If the status failed to complete successfully 
+        """
+        ax, ay, az = self.pitch, self.yaw, self.roll
+
+        #calculate displacement in room coordinates
+        mx = dx*cos(ay)*cos(az) + dy*sin(az)*cos(ay)
+        my = (dx*(sin(ax)*sin(ay)*cos(az) - sin(az)*cos(ax))
+            + dy*(sin(ax)*sin(ay)*sin(az) + cos(ax)*cos(az)))
+
+        status =  [self.cone.set_joint((mx,my), offset=False),
+                   self.flat.set_joint((mx,my), offset=False),
+                   self.vee.set_joint((mx,my),  offset=False)]
+
+        if wait:
+            #Wait for each movement to finish
+            try:
+                [ophyd.status.wait(s) for s in status]
+
+            #Stop all motion if one motor fails
+            except:
+                self.cone.stop()
+                self.flat.stop()
+                self.vee.stop()
+                raise 
+
+        return status
