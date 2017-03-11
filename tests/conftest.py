@@ -1,7 +1,7 @@
 ############
 # Standard #
 ############
-
+import logging
 ###############
 # Third Party #
 ###############
@@ -10,7 +10,11 @@ from unittest.mock import Mock
 ##########
 # Module #
 ##########
-from detrot import Point
+from detrot import Point, ConeJoint, AngledJoint, Stand
+
+#Setup Logger in DEBUG mode
+logging.getLogger('detrot').setLevel(logging.DEBUG)
+logging.basicConfig()
 
 class PseudoMotor:
 
@@ -29,11 +33,19 @@ class PseudoMotor:
         self.stop_call.method()
         pass
 
-class PseudoStand: 
+
+cone = ConeJoint(slide = PseudoMotor(0),
+                 lift   = PseudoMotor(0),
+                 offset = Point(1,2,3))
+
+flat = AngledJoint(lift   = PseudoMotor(0),
+                   offset = Point(1,2,3))
+
+vee = AngledJoint(slide  = PseudoMotor(0),
+                  lift    = PseudoMotor(0),
+                  offset  = Point(1,2,3))
 
 
-    def __init__(self, point):
-        self.cone  = point
-        self.pitch = 0.
-        self.yaw   = 0.
-        self.roll  = 0.
+@pytest.fixture(scope='function')
+def pseudo_stand():
+    return Stand(cone=cone, flat=flat, vee=vee)
