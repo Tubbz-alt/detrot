@@ -54,8 +54,8 @@ class StandPoint:
         """
         The coordinates of the point in the stand reference frame
         """
-        return Point(self.offset.x + self.stand.cone.x,
-                     self.offset.y + self.stand.cone.y,
+        return Point(self.offset.x + self.stand.cone.joint.x,
+                     self.offset.y + self.stand.cone.joint.y,
                      self.offset.z)
 
 
