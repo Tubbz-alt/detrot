@@ -6,7 +6,7 @@
 # Third Party #
 ###############
 import pytest
-
+from unittest.mock import Mock
 ##########
 # Module #
 ##########
@@ -14,8 +14,20 @@ from detrot import Point
 
 class PseudoMotor:
 
+    stop_call = Mock()
+
     def __init__(self, position):
         self.position = position
+        self.name = 'pseudo'
+        self.limits = (0,0)
+
+    def move(self, pos, wait=True):
+        self.position = pos
+        return True
+
+    def stop(self):
+        self.stop_call.method()
+        pass
 
 class PseudoStand: 
 
