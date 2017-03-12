@@ -155,6 +155,8 @@ class AngledJoint:
         status : ``ophyd.Status``
             Status of the requested move, or list of both requested moves
         """
+        logger.info("Setting motors to {} from nominal "
+                    " zero".format(displacement))
         if not self.slide:
             return self.lift.move(displacement, wait=False)
 
@@ -192,11 +194,12 @@ class AngledJoint:
         """
         Stop all motion
         """
+        logger.info("Stopping joint")
         if self.slide:
             self.slide.stop()
         self.lift.stop()
-    
-    
+
+
     @classmethod
     def model(cls, joint):
         """
@@ -541,7 +544,10 @@ class Stand:
         """
         ax, ay, az = self.pitch, self.yaw, self.roll
 
-        #calculate displacement in room coordinates
+        logger.debug("Translating stand {} mm horizontally, and {} "
+                     "vertically".format(dx,dy))
+
+        #Calculate displacement in room coordinates
         mx = dx*cos(ay)*cos(az) + dy*sin(az)*cos(ay)
         my = (dx*(sin(ax)*sin(ay)*cos(az) - sin(az)*cos(ax))
             + dy*(sin(ax)*sin(ay)*sin(az) + cos(ax)*cos(az)))
@@ -553,10 +559,12 @@ class Stand:
         if wait:
             #Wait for each movement to finish
             try:
+                print("Waiting for motion to be completed ...") 
                 [ophyd.status.wait(s) for s in status]
 
             #Stop all motion if one motor fails
             except:
+                print("Stopping motors ...")
                 self.cone.stop()
                 self.flat.stop()
                 self.vee.stop()
