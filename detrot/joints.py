@@ -430,7 +430,6 @@ class Stand:
 
         #Begin iteration
         while True:
-            logger.debug("Iteration {} ...".format(it))
 
             #Find error in predicted flat motor position from current angles
             fl_e =  self.flat.invert(flat.room_coordinates)- self.flat.displacement
@@ -440,7 +439,7 @@ class Stand:
 
             #Find error in predicted vee motor position from current angles
             predictions  = self.vee.invert(vee.room_coordinates)
-            (vs_e, vl_e) = [actual - pred for (actual,pred) in
+            (vs_e, vl_e) = [pred - actual for (actual,pred) in
                             zip(self.vee.displacement, predictions)]
             logger.debug("Found a lift error of {} mm and a slide error of "
                          "{} mm for the motors in the vee joint"
@@ -459,7 +458,7 @@ class Stand:
                 break
 
             #Adjust the angle predictions 
-            it += 1
+            logger.debug("Iteration {} ...".format(it))
 
             self.pitch += (vl_e + vs_e)/(3*self.vee.offset.z)
             self.yaw   +=  vs_e/(-3*self.vee.offset.z)
@@ -470,6 +469,7 @@ class Stand:
             logger.debug("Pitch, Yaw, and Roll adjusted to {}"
                          "".format((self.pitch, self.yaw, self.roll)))
 
+            it += 1
         return (self.pitch, self.yaw, self.roll)
 
 
