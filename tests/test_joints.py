@@ -136,6 +136,37 @@ def test_cmp():
 
 def test_find_angle(pseudo_stand):
     pseudo_stand.find_angles()
+    pseudo_stand.cone.offset = Point(0, 0, 0)
+    pseudo_stand.flat.offset = Point(10,  0 ,  20)
+    pseudo_stand.vee.offset  = Point(-10, 0 ,  20)
+    #No offset should be at rest
     assert pseudo_stand.pitch == 0
     assert pseudo_stand.yaw   == 0
     assert pseudo_stand.roll  == 0
+
+    #15 degree roll
+    pseudo_stand.flat.lift.move(10)
+    pseudo_stand.vee.lift.move(-10)
+    pseudo_stand.find_angles()
+    assert pseudo_stand.pitch == pytest.approx(0, abs=math.pi/180)
+    assert pseudo_stand.yaw   == pytest.approx(0, abs=math.pi/180)
+    assert pseudo_stand.roll  == pytest.approx(math.pi/12, abs=math.pi/180)
+
+    #12 degree yaw
+    pseudo_stand.vee.slide.move(4.25113)
+    pseudo_stand.vee.lift.move(0)
+    pseudo_stand.flat.lift.move(0)
+    pseudo_stand.find_angles()
+    assert pseudo_stand.pitch == pytest.approx(0, abs=math.pi/180)
+    assert pseudo_stand.yaw   == pytest.approx(math.pi/15, abs=math.pi/180)
+    assert pseudo_stand.roll  == pytest.approx(0, abs=math.pi/180)
+
+
+    #10 degree pitch
+    pseudo_stand.vee.lift.move(-13.4185)
+    pseudo_stand.flat.lift.move(-13.4185)
+    pseudo_stand.find_angles()
+    assert pseudo_stand.pitch == pytest.approx(math.pi/18, abs=math.pi/180)
+    assert pseudo_stand.yaw   == pytest.approx(math.pi/15, abs=math.pi/180)
+    assert pseudo_stand.roll  == pytest.approx(0, abs=math.pi/180)
+
