@@ -15,7 +15,6 @@ import pytest
 from detrot  import ConeJoint, AngledJoint, Point
 from conftest import PseudoMotor
 
-
 @pytest.fixture(scope='function')
 def pseudo_cone():
     angled = ConeJoint(slide  = PseudoMotor(5),
@@ -29,7 +28,6 @@ def pseudo_angle():
                          lift   = PseudoMotor(10),
                          offset = Point(1,2,3))
     return angled
-
 
 def test_cone_joint(pseudo_cone):
     #Test Vertical 
@@ -54,7 +52,7 @@ def test_angle_joint(pseudo_angle):
     assert pytest.approx(pseudo_angle.joint.x) == 5
     assert pytest.approx(pseudo_angle.joint.y) == 10
     assert pytest.approx(pseudo_angle.joint.z) == 0
-    
+
     #Test Horizontal
     pseudo_angle.alpha = 0
     assert pytest.approx(pseudo_angle.joint.x) == 5
@@ -98,7 +96,7 @@ def test_set_joint(pseudo_angle):
     pseudo_angle.set_joint((6,12))
     assert pseudo_angle.displacement[0] == pytest.approx(5,0.1)
     assert pseudo_angle.displacement[1] == pytest.approx(10,0.1)
-    
+
     #Test no-slide
     pseudo_angle.slide = None
     pseudo_angle.set_joint((6,12)) 
@@ -161,7 +159,6 @@ def test_find_angle(pseudo_stand):
     assert pseudo_stand.yaw   == pytest.approx(math.pi/15, abs=math.pi/180)
     assert pseudo_stand.roll  == pytest.approx(0, abs=math.pi/180)
 
-
     #10 degree pitch
     pseudo_stand.vee.lift.move(-13.4185)
     pseudo_stand.flat.lift.move(-13.4185)
@@ -170,3 +167,10 @@ def test_find_angle(pseudo_stand):
     assert pseudo_stand.yaw   == pytest.approx(math.pi/15, abs=math.pi/180)
     assert pseudo_stand.roll  == pytest.approx(0, abs=math.pi/180)
 
+def test_translate(pseudo_stand):
+    pseudo_stand.translate(dx=1,dy=2)
+    assert pseudo_stand.cone.joint.x  == pytest.approx(1, abs=0.0001)
+    assert pseudo_stand.cone.joint.y  == pytest.approx(2, abs=0.0001)
+    assert pseudo_stand.vee.joint.x   == pytest.approx(1, abs=0.0001)
+    assert pseudo_stand.vee.joint.y   == pytest.approx(2, abs=0.0001)
+    assert pseudo_stand.flat.joint.y  == pytest.approx(2, abs=0.0001)
