@@ -1,4 +1,4 @@
-from .joints import Stand, ConeJoint, AngledJoint
+from .joints import Detector, Stand, ConeJoint, AngledJoint
 from .points import Point, StandPoint
 
 from ._version import get_versions
