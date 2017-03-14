@@ -1,9 +1,10 @@
-Reference Frames
-----------------
+Coordinate System
+-----------------
 .. automodule:: detrot.points
+
+.. autoclass:: detrot.StandPoint
+   :members:
 
 .. autoclass:: detrot.Point
    :members:
 
-.. autoclass:: detrot.StandPoint
-   :members:
