@@ -1,3 +1,5 @@
+.. _stand:
+
 Stands
 ------
 .. automodule:: detrot.stand

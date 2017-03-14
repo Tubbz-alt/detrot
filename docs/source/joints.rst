@@ -1,3 +1,5 @@
+.. _joints:
+
 Joints
 ======
 .. automodule:: detrot.joints
