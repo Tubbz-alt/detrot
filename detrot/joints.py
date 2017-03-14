@@ -31,7 +31,6 @@ from .points import StandPoint, Point
 
 logger = logging.getLogger(__name__)
 
-
 class AngledJoint:
     """
     A class representing two angled joint motors as a single axis.
@@ -96,7 +95,7 @@ class AngledJoint:
         else:
             slide, lift = self.displacement
 
-        return Point(slide, lift*sin(self.alpha), -lift*cos(self.alpha))
+        return Point(slide, lift*sin(self.alpha), lift*cos(self.alpha))
 
 
     def invert(self, point, offset=True):
@@ -140,7 +139,7 @@ class AngledJoint:
             return (point.x, point.y/sin(self.alpha))
 
 
-    def set_displacement(self, displacement):
+    def set_displacement(self, displacement, relative=False):
         """
         Set the displacements of the lift and/or slide stages of the joint
 
@@ -150,6 +149,9 @@ class AngledJoint:
             Either a single float if there is no slide, otherwise a tuple of
             (slide, lift)
 
+        relative : bool, optional
+            Choice of relative or absolute move
+
         Returns
         -------
         status : ``ophyd.Status``
@@ -157,10 +159,17 @@ class AngledJoint:
         """
         logger.info("Setting motors to {} from nominal "
                     " zero".format(displacement))
+
         if not self.slide:
+            if relative:
+                displacement += self.lift.position
+
             return self.lift.move(displacement, wait=False)
 
         else:
+            if relative:
+                displacement = (displacement[0]+self.slide.position,
+                                displacement[1]+self.lift.position)
             return [self.slide.move(displacement[0], wait=False),
                     self.lift.move(displacement[1],  wait=False)],
 
@@ -295,7 +304,7 @@ class ConeJoint(AngledJoint):
         #Find displacement
         if offset:
             point = Point(point.x - self.offset.x,
-                        point.y - self.offset.y,
+                          point.y - self.offset.y,
                         0.)
 
         return (point.x-point.y/tan(self.alpha),
@@ -314,6 +323,47 @@ class ConeJoint(AngledJoint):
         joint.alpha = self.alpha
         return joint
 
+
+class Detector:
+
+    def __init__(self, slide, offset=None):
+        self.slide  = slide
+        self.offset = offset
+
+
+    @property
+    def displacement(self):
+        """
+        Displacement of the detector motor from the nominal zero
+        """
+        return self.slide.position
+
+
+    @property
+    def position(self):
+        """
+        Position of the ball joint in rest coordinates as a :class:`.Point`
+        """
+        return Point(self.offset.x,
+                     self.offset.y,
+                     self.displacement+self.offset.z)
+
+
+    @classmethod
+    def model(cls, det):
+        model = copy.copy(det)
+        model.slide = SoftPositioner(name   = det.slide.name,
+                                     limits = det.slide.limits)
+        model.slide.move(det.slide.position)
+        return model
+
+    def __copy__(self):
+        det = Detector(slide  = self.slide,
+                       offset = self.offset)
+        return det
+
+    def __repr__(self):
+        return "Detector at {!r}".format(self.position)
 
 class Stand:
     """
@@ -352,7 +402,7 @@ class Stand:
     """
     joint_names = ('cone', 'vee', 'flat')
 
-    def __init__(self, cone=None, flat=None, vee=None):
+    def __init__(self, cone=None, flat=None, vee=None, det=None):
 
         #Angles
         self.pitch = 0.
@@ -363,30 +413,7 @@ class Stand:
         self.cone = cone
         self.flat = flat
         self.vee  = vee
-
-
-    @property
-    def cone_ball(self):
-        """
-        The :class:`.StandPoint` at the top of the cone joint
-        """
-        return StandPoint(self.cone.position, self)
-
-
-    @property
-    def vee_ball(self):
-        """
-        The :class:`.StandPoint` at the top of the vee joint
-        """
-        return StandPoint(self.vee.position, self)
-
-
-    @property
-    def flat_ball(self):
-        """
-        The :class:`.StandPoint` at the top of the flat joint
-        """
-        return StandPoint(self.flat.position, self)
+        self.detector = det
 
 
     def find_angles(self, precision= 0.001, min_iterations=30):
@@ -427,15 +454,14 @@ class Stand:
         it = 0
         logger.debug("Finding angles of stand ...")
 
-        #Resting stand positions
         flat = StandPoint(self.flat.offset, self)
         vee  = StandPoint(self.vee.offset,  self)
-
         #Begin iteration
         while True:
 
             #Find error in predicted flat motor position from current angles
-            fl_e =  self.flat.invert(flat.room_coordinates)- self.flat.displacement
+            fl_e =  (self.flat.invert(flat.room_coordinates)
+                     - self.flat.displacement)
             logger.debug("Found an error of {} mm in the prediction "
                          "of the flat slide motor"
                          "".format(fl_e))
@@ -476,50 +502,17 @@ class Stand:
         return (self.pitch, self.yaw, self.roll)
 
 
-    def invert(self, offset=True, **kwargs):
-        """
-        Find the neccesary motor positions for requested joint displacement
-
-        Parameters
-        ----------
-        cone : tuple or :class:`.Point`
-            Position of cone joint
-
-        flat : tuple or :class:`.Point`
-            Position of vee joint
-
-        vee : tuple or :class:`.Point`
-            Position of vee joint
-
-        offset : bool
-            Whether to remove the requested inherit offset or not
-
-        Returns
-        -------
-        displacement : dict
-            Dictionary with each 
-        """
-        shift = dict.from_keys(self.joint_names)
-
-        for joint in shift.keys():
-            if joint in kwargs:
-                shift[joint] = getattr(self,joint).invert(kwargs[joint],
-                                                          offset=offset)
-
-        return shift
-
-
-    def translate(self, dx=0., dy=0., wait=False):
+    def translate(self, dx=0., dy=0., wait=False, timeout=5.0):
         """"
         Translate the entire stand in x,y
 
         Parameters
         ----------
         dx : float
-            Distance in mm to move in horizontal direction
+            Position in mm to move in horizontal direction
 
         dy : float
-            Distance in mm to move in vertical direction
+            Position in mm to move in vertical direction
 
         wait : bool
             Block thread until move finishes
@@ -552,22 +545,139 @@ class Stand:
         my = (dx*(sin(ax)*sin(ay)*cos(az) - sin(az)*cos(ax))
             + dy*(sin(ax)*sin(ay)*sin(az) + cos(ax)*cos(az)))
 
-        status =  [self.cone.set_joint((mx,my), offset=False),
-                   self.flat.set_joint((mx,my), offset=False),
-                   self.vee.set_joint((mx,my),  offset=False)]
+        return self.set_displacement(cone = self.cone.invert((mx,my), offset=False),
+                                     flat = self.flat.invert((mx,my), offset=False),
+                                     vee  = self.vee.invert((mx,my),  offset=False),
+                                     relative=True, wait=wait, timeout=timeout)
 
+
+    def rotate(self, dpitch=0., dyaw = 0., droll=0., wait=False, timeout=5.0):
+        """
+        Rotate the detector stand, while keeping the cone joint stationary
+
+        Parameters
+        ----------
+        dpitch : float
+            Desired change in pitch (radians)
+
+        dyaw : float
+            Desired change in yaw (radians)
+
+        droll : float
+            Desired change in roll (radians)
+        """
+        #Setup model with requested angles
+        model = Stand.model(self)
+        model.pitch += dpitch
+        model.yaw   += dyaw
+        model.roll  += droll
+
+        #See where joint positions lie in the new model
+        model_vee  = StandPoint(self.vee.offset,  model)
+        model_flat = StandPoint(self.flat.offset, model)
+
+        #Make motor agree with model
+        return self.set_displacement(flat = self.flat.invert(model_flat.room_coordinates),
+                                     vee  = self.vee.invert(model_vee.room_coordinates),
+                                     wait=wait, timeout=timeout)
+
+
+    def align(self, z, dx=0., dy=0., origin= 0.,
+              retries=2, wait=False, timeout=5.0):
+        """
+        Parameters
+        ----------
+
+        """
+        logger.debug("Rotating point {} on the detector axis about point {}"
+                     "".format(z, origin))
+        #Setup model
+        model       = Stand.model(self)
+        model_fixed = StandPoint((model.detector.position.x,
+                                  model.detector.position.y,
+                                  origin),
+                                  model)
+
+        #Save initial position for reference
+        initial = model_fixed.room_coordinates
+
+        #Small angle approximate
+        dpitch = -dy/(z - origin)
+        dyaw   = -dx/(origin  - z)
+
+        logger.debug("Small angle approximation requests a change in pitch "
+                     "and yaw of {}, {} respectively"
+                     "".format(dpitch, dyaw))
+
+        #Rotate model to move desired point
+        model.rotate(dpitch=dpitch, dyaw=dyaw)
+        model.find_angles()
+
+        #Correction on fixed origin
+        its = 0
+        while its < retries:
+            #Find change from initial origin
+            dx, dy, dz = [m -r for (m,r) in zip(model_fixed.room_coordinates,
+                                                initial)]
+            logger.debug("Fixed point has error x,y,z -> ({},{},{})"
+                         "".format(dx,dy,dz))
+
+            #Approximate neccesary translation
+            xslope = dz * (model.pitch*model.roll + model.yaw)
+            yslope = dz * (model.pitch + model.yaw*model.roll)
+
+            #Translate 
+            model.translate(-dx + xslope, -dy - yslope)
+
+            #Next iteration
+            its += 1
+
+        return self.from_model(model, wait=wait, timeout=timeout)
+
+
+    @classmethod
+    def model(cls, stand):
+        model = Stand(cone = ConeJoint.model(stand.cone),
+                      flat = AngledJoint.model(stand.flat),
+                      vee  = AngledJoint.model(stand.vee),
+                      det  = Detector.model(stand.detector))
+
+        model.pitch, model.yaw, model.roll = stand.pitch, stand.yaw, stand.roll
+        return model
+
+
+    def from_model(self, model, wait=False, timeout=5):
+        return self.set_displacement(cone = model.cone.displacement,
+                                     flat = model.flat.displacement,
+                                     vee  = model.vee.displacement,
+                                     wait=wait, timeout=timeout)
+
+    def set_displacement(self,  wait=False, timeout=5.0, relative=False,  **kwargs):
+        status = []
+
+        #Find requested joints
+        for joint in self.joint_names:
+            if joint in kwargs:
+                #Order move
+                st = getattr(self, joint).set_displacement(kwargs[joint],
+                                                           relative=relative)
+                #Add status to pile
+                status.append(st)
+
+        #Perform motion
         if wait:
             #Wait for each movement to finish
             try:
                 print("Waiting for motion to be completed ...") 
-                [ophyd.status.wait(s) for s in status]
+                [ophyd.status.wait(s, timeout=timeout) for s in status]
 
             #Stop all motion if one motor fails
             except:
-                print("Stopping motors ...")
+                print("Exception raised, stopping motors ...")
                 self.cone.stop()
                 self.flat.stop()
                 self.vee.stop()
-                raise 
+                raise
 
         return status
+
