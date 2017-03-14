@@ -10,7 +10,7 @@ motors. These help adjust the X motion of the chamber to counter act the
 parasitic motions of the lift.  In order represent all three of these joints,
 we have the :class:`.AngledJoint` and :class:`.ConeJoint` classes. Each
 interprets the position of their motors and the given ``offset`` to find the
-rest frame position of the joint. They also each have an :meth:`.invert` method
+rest frame position of the joint. They also each have an ``invert`` method
 so the the operation can be reversed.
 """
 ############
@@ -192,7 +192,7 @@ class AngledJoint:
         Set the joint to a specific point in rest frame coordinates
 
         This is the identical to setting the displacement of the motors to the
-        result of the :meth:`.invert` method
+        result of the :meth:`AngledJoint.invert` method
 
         Parameters
         ----------
@@ -210,7 +210,7 @@ class AngledJoint:
 
         See Also
         --------
-        :meth:`.invert`, :meth:`.set_displacement`
+        :meth:`AngledJoint.invert`, :meth:`AngledJoint.set_displacement`
         """
         return self.set_displacement(self.invert(point, offset=offset))
 
@@ -391,7 +391,7 @@ class Detector:
 
         Parameters
         ----------
-        displacement : float or tuple
+        displacement : float
             Desired position or move of the detector
 
         relative : bool, optional
