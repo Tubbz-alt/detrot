@@ -5,7 +5,7 @@ CXI Detector Rotation
 
 .. toctree::
    :maxdepth: 1
-   :caption: Contents:
 
    points.rst
    angled.rst
+   stand.rst
