@@ -11,5 +11,5 @@ Joint Types
    :members:
    :show-inheritance:
 
-Stand
------
+.. autoclass:: detrot.Detector
+   :members:
