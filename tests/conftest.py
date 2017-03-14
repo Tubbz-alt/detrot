@@ -14,7 +14,7 @@ from detrot import Detector, Point, ConeJoint, AngledJoint, Stand
 
 #Setup Logger in DEBUG mode
 logging.getLogger('detrot').setLevel(logging.DEBUG)
-logging.basicConfig()
+#logging.basicConfig()
 
 class PseudoMotor:
 
@@ -34,20 +34,19 @@ class PseudoMotor:
         pass
 
 
-cone = ConeJoint(slide = PseudoMotor(0),
-                 lift   = PseudoMotor(0),
-                 offset = Point(1,2,3))
-
-flat = AngledJoint(lift   = PseudoMotor(0),
-                   offset = Point(1,2,3))
-
-vee = AngledJoint(slide  = PseudoMotor(0),
-                  lift    = PseudoMotor(0),
-                  offset  = Point(1,2,3))
-
-det = Detector(slide=PseudoMotor(0),
-               offset = Point(0,1,0))
-
 @pytest.fixture(scope='function')
 def pseudo_stand():
+    cone = ConeJoint(slide = PseudoMotor(0),
+                     lift   = PseudoMotor(0),
+                     offset = Point(1,2,3))
+
+    flat = AngledJoint(lift   = PseudoMotor(0),
+                       offset = Point(1,2,3))
+
+    vee = AngledJoint(slide  = PseudoMotor(0),
+                      lift    = PseudoMotor(0),
+                      offset  = Point(1,2,3))
+
+    det = Detector(slide=PseudoMotor(0),
+                   offset = Point(0,1,0))
     return Stand(cone=cone, flat=flat, vee=vee, det=det)
