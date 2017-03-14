@@ -7,5 +7,5 @@ CXI Detector Rotation
    :maxdepth: 1
 
    points.rst
-   angled.rst
+   joints.rst
    stand.rst
