@@ -1,0 +1,29 @@
+{% set data = load_setup_py_data() %}
+
+package:
+    name    : detrot
+    version : {{ data.get('version') }}
+
+source:
+    path : ..
+
+
+requirements:
+    build:
+        - python {{PY_VER}}*,>=3
+        - setuptools 
+
+    run:
+        - ophyd
+        - python {{PY_VER}}*,>=3
+    
+
+
+test:
+    imports:
+        - pytest
+        - detrot
+
+about:
+    home: https://github.com/slaclab/detrot
+    license: SLAC Open License
