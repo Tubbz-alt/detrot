@@ -1,21 +1,22 @@
 """
-The detrot module uses three separate reference frames to keep track of various
-positions on the detector stand, the rest frame, the stand frame and the room
-frame. For the purposes of this application we consider the rest frame to be
-when the cone joint at the front of the stand is perfectly vertical, and all of
-the other joint motors are zeroed.
+The ``detrot`` module takes advantage of three different reference frames to
+view the Detector stand, the rest frame, the stand frame and the room frame.
+The most intuitive starting point is the rest frame, this ignores any rotation
+and translation of the stand, with the y axis perpindicular to the detector
+base and all joints pointing vertically upwards. From here we can translate to
+the frame of the surrounding stand by looking at the position of the cone joint
+i.e the apex of the three joints that manipulate the stand. We use this as the
+center of rotation for all our rigid body calculations. After accounting for
+the x,y displacement of the cone, we can then do the more complex calculation
+into the room frame. This takes into account the pitch, yaw and roll of the stand
+and the fact that the rest frame axes are not colinear with the surrounding
+room.
 
-From the points in this frame, it is trivial to transform into the stand frame.
-Simply adjust the value in x,y based on the current position of the cone joint.
-However, this ignores any rotation of the stand. Finally, a more complex
-transformation is neccesary to reach the room frame. This matrix takes into
-account not only the cone joint position but also the pitch, yaw, and roll
-introduced by offsets in the other joints.
-
-The :class:`.StandPoint makes adjusting between these points simple. Simply
-enter the rest coordinates of the position and use the attributes
-:attr:`.StandPoint.frame_coordinates`, and :attr:`.StandPoint.room_coordinates`
-to move between coordinate systems.
+Transforming through these different frames is done through the
+:class:`.StandPoint`. Simply enter a point in the rest frame using the cone
+joint as the origin, then check either the :attr:`.stand_coordinates` or
+:attr:`.room_coordinates` to see how the point moves as the angles of the stand
+change.
 """
 ############
 # Standard #
@@ -36,20 +37,32 @@ class Point(namedtuple('PointBase', ['x','y','z'])):
     """
     Generic Point Class
 
-    A reimplementation of ``collections.namedtuple`` that allows for attribute
-    access of the different coordinates.
+    A reimplementation of the ``collections.namedtuple`` class. This allows
+    both index and attribute based access to the position variables.
+
+    Parameters
+    ----------
+    x : float
+
+    y : float
+
+    z : float
 
     Example
     -------
     .. ipython:: python
 
-        pnt = Point(0,1,2)
+        from detrot import Point
 
-        pnt == (0,1,2)
+        pnt = Point(1,2,3)
 
-        pnt.x == pnt[0]
+        print(pnt.x)
 
-        print(pnt.x, pnt.y, pnt.z)
+        pnt.y == 2
+
+        pnt[2] == 3
+
+        pnt == (1,2,3)
     """
     def __repr__(self):
         return "Point (x,y,z -> {},{},{})".format(self.x,
@@ -85,8 +98,8 @@ class StandPoint:
         The coordinates of the point in the stand reference frame as a
         :class:`.Point`
         """
-        return Point(self.offset.x + self.stand.cone.x,
-                     self.offset.y + self.stand.cone.y,
+        return Point(self.offset.x + self.stand.cone.joint.x,
+                     self.offset.y + self.stand.cone.joint.y,
                      self.offset.z)
 
 
