@@ -14,6 +14,9 @@ introduce a parasitic motion forward in Z. This means that purely raising the
 detector takes a coordinated effort between all three joints if you don't
 want to introduce rotation.
 
+.. image:: _static/ds.png
+   :align: center
+
 The :ref:`joints` module handles the first level of manipulation, providing an
 interface where you can request simple x and y coordinates for the joint,
 without having to deal with the geometry of the off-axis stages. The
@@ -38,7 +41,8 @@ relative the cone joint of the stand, and calculate their actual position in
 terms of the other stands and devices along the beam.
 
 
-
+.. image:: _static/matrix.png
+   :align: center
 
 In a few cases in the stand calculations we need to peform the inverse
 operation, of calculating the angles from a set of motor positions. For the
