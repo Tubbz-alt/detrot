@@ -1,16 +1,17 @@
 """
 Part of the complexity of rotating the detector stands is manipulating the
 three unique joints at each corner. All three have a ``lift`` motor which
-pushes the stand upwards and horizontally. In the case of the cone joint at
-underneat the stand, moving upwards also neccesitates a motion in the positive X
-direction, while the other two joints both introduce displacement in Z. 
+pushes the stand upwards and horizontally. In the case of the cone joint
+underneath the stand, moving upwards also introduces motion in the positive X
+direction, while the other two joints both displace the stand in Z.
 
-In addition, both the vee and cone joints have ``slide `` motors. These help adjust
-the X motion of the chamber to counter act the parasitic motions of the lift.
-In order represent all three of these joints, we have the :class:`.AngledJoint`
-and :class:`.ConeJoint` classes. Each interperts the position of their motors and
-the given ``offset`` to find the rest frame position of the joint. They
-also each have an :meth:`.invert` method so the the operation can be reversed.
+In addition to the lifting motors, both the vee and cone joints have ``slide``
+motors. These help adjust the X motion of the chamber to counter act the
+parasitic motions of the lift.  In order represent all three of these joints,
+we have the :class:`.AngledJoint` and :class:`.ConeJoint` classes. Each
+interprets the position of their motors and the given ``offset`` to find the
+rest frame position of the joint. They also each have an :meth:`.invert` method
+so the the operation can be reversed.
 """
 ############
 # Standard #
@@ -60,6 +61,15 @@ class AngledJoint:
 
         self.slide  = slide
         self.lift   = lift
+
+        if not isinstance(offset, Point):
+            try:
+                offset = Point(*offset)
+            except TypeError:
+                logger.warning("Found invalid offset type {} ..."
+                               "".format(type(offset)))
+                offset = Point(0,0,0)
+
         self.offset = offset
 
 
@@ -101,7 +111,7 @@ class AngledJoint:
     def invert(self, point, offset=True):
         """
         Invert the matrix to find the neccesary motor positions to put the
-        joint at a specific displacement (x,y) coordinate in rest coordinates
+        joint at a specific displacement (x,y) in rest coordinates
 
         Parameters
         -----------
@@ -157,12 +167,13 @@ class AngledJoint:
         status : ``ophyd.Status``
             Status of the requested move, or list of both requested moves
         """
-        logger.info("Setting motors to {} from nominal "
-                    " zero".format(displacement))
 
         if not self.slide:
             if relative:
                 displacement += self.lift.position
+
+            logger.info("Setting motors to {} from nominal "
+                        " zero".format(displacement))
 
             return self.lift.move(displacement, wait=False)
 
@@ -170,6 +181,8 @@ class AngledJoint:
             if relative:
                 displacement = (displacement[0]+self.slide.position,
                                 displacement[1]+self.lift.position)
+            logger.info("Setting motors to {} from nominal "
+                        " zero".format(displacement))
             return [self.slide.move(displacement[0], wait=False),
                     self.lift.move(displacement[1],  wait=False)],
 
@@ -177,6 +190,9 @@ class AngledJoint:
     def set_joint(self, point, offset=True):
         """
         Set the joint to a specific point in rest frame coordinates
+
+        This is the identical to setting the displacement of the motors to the
+        result of the :meth:`.invert` method
 
         Parameters
         ----------
@@ -250,7 +266,7 @@ class AngledJoint:
 
 
     def __repr__(self):
-        return "AngledJoint at {!r}".format(self.joint)
+        return "AngledJoint at {!r} (".format(self.joint)
 
 
     def __eq__(self, other):
@@ -325,9 +341,29 @@ class ConeJoint(AngledJoint):
 
 
 class Detector:
+    """
+    The internal slide of the Detector
 
+    Parameters
+    ----------
+    slide : ``ophyd.EpicsMotor``
+        The internal Z motion
+
+    offset : :class:`.Point` or tuple
+        The distance from the cone to the zero point of the motor
+    """
     def __init__(self, slide, offset=None):
         self.slide  = slide
+        self.offset = offset
+
+        if not isinstance(offset, Point):
+            try:
+                offset = Point(*offset)
+            except TypeError:
+                logger.warning("Found invalid offset type {} ..."
+                               "".format(type(offset)))
+                offset = Point(0,0,0)
+
         self.offset = offset
 
 
@@ -349,8 +385,43 @@ class Detector:
                      self.displacement+self.offset.z)
 
 
+    def set_displacement(self, pos, relative=False):
+        """
+        Set the displacement of the Detector motor
+
+        Parameters
+        ----------
+        displacement : float or tuple
+            Desired position or move of the detector
+
+        relative : bool, optional
+            Choice of relative or absolute move
+
+        Returns
+        -------
+        status : ``ophyd.Status``
+            Status of the requested move
+        """
+        if relative:
+            displacement += self.slide.position
+
+        logger.info("setting motors to {} from nominal "
+                " zero".format(displacement))
+
+        return self.lift.move(displacement, wait=False)
+
+
     @classmethod
     def model(cls, det):
+        """
+        Create a model of the detector stage with a ``ophyd.SoftPositioner`` as
+        the slide
+
+        Parameters
+        ----------
+        det : :class:`.Detector`
+            Detector stage to model
+        """
         model = copy.copy(det)
         model.slide = SoftPositioner(name   = det.slide.name,
                                      limits = det.slide.limits)
