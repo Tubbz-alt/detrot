@@ -13,8 +13,8 @@ from unittest.mock import Mock
 from detrot import Detector, Point, ConeJoint, AngledJoint, Stand
 
 #Setup Logger in DEBUG mode
-logging.getLogger('detrot').setLevel(logging.DEBUG)
-#logging.basicConfig()
+logging.getLogger('detrot').setLevel(logging.INFO)
+logging.basicConfig()
 
 class PseudoMotor:
 
