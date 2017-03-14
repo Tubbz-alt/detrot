@@ -52,7 +52,6 @@ sequence they moved the detector by millimeters.
    :maxdepth: 1
    :caption: Contents
 
-   conventions.rst
    points.rst
    joints.rst
    stand.rst
